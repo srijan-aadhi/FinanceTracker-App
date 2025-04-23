@@ -3,9 +3,11 @@ import axios from 'axios';
 import {
   Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Button, Box, Dialog, DialogTitle, DialogContent, DialogActions, TextField,
-  FormControl, InputLabel, Select, MenuItem, SelectChangeEvent, FormHelperText
+  FormControl, InputLabel, Select, MenuItem, SelectChangeEvent, FormHelperText, IconButton
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
 
 interface Transaction {
   id: number;
@@ -25,6 +27,7 @@ interface NewTransactionForm {
 const Transactions = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [open, setOpen] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [newTransaction, setNewTransaction] = useState<NewTransactionForm>({
     date: '', description: '', category: '', amount: ''
   });
@@ -44,26 +47,35 @@ const Transactions = () => {
     setErrors(prev => ({ ...prev, [name]: '' }));
   };
 
-  const validateDate = (dateStr: string) => {
+  const isDateValidFormat = (dateStr: string) => {
     const regex = /^\d{4}-\d{2}-\d{2}$/;
     if (!regex.test(dateStr)) return false;
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
+  };
 
+  const isFutureDate = (dateStr: string) => {
     const parsed = new Date(dateStr);
-    const isValid = !isNaN(parsed.getTime());
-    const isoString = parsed.toISOString().slice(0, 10);
-
-    return isValid && isoString === dateStr;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return parsed > today;
   };
 
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
+
     if (!newTransaction.date) {
       newErrors.date = 'Date is required';
-    } else if (!validateDate(newTransaction.date)) {
-      newErrors.date = 'Invalid date format or non-existent date';
+    } else if (!isDateValidFormat(newTransaction.date)) {
+      newErrors.date = 'Invalid or non-existent date';
+    } else if (isFutureDate(newTransaction.date)) {
+      newErrors.date = 'Future dates are not allowed';
     }
+
     if (!newTransaction.category) newErrors.category = 'Category is required';
     if (!newTransaction.amount || isNaN(Number(newTransaction.amount))) newErrors.amount = 'Valid amount is required';
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -75,19 +87,46 @@ const Transactions = () => {
     const isIncome = newTransaction.category === 'Income';
     const finalAmount = isIncome ? rawAmount : -Math.abs(rawAmount);
 
-    try {
-      const response = await axios.post('http://localhost:8000/api/transactions/', {
-        date: newTransaction.date,
-        description: newTransaction.description || '',
-        category: newTransaction.category,
-        amount: finalAmount,
-      });
+    const transactionData = {
+      date: newTransaction.date,
+      description: newTransaction.description || '',
+      category: newTransaction.category,
+      amount: finalAmount,
+    };
 
-      setTransactions(prev => [...prev, response.data]);
+    try {
+      if (editingId) {
+        const response = await axios.put(`http://localhost:8000/api/transactions/${editingId}/`, transactionData);
+        setTransactions(prev => prev.map(t => t.id === editingId ? response.data : t));
+      } else {
+        const response = await axios.post('http://localhost:8000/api/transactions/', transactionData);
+        setTransactions(prev => [...prev, response.data]);
+      }
       setNewTransaction({ date: '', description: '', category: '', amount: '' });
+      setEditingId(null);
       setOpen(false);
     } catch (error) {
-      console.error("Failed to add transaction:", error);
+      console.error("Failed to save transaction:", error);
+    }
+  };
+
+  const handleEdit = (transaction: Transaction) => {
+    setNewTransaction({
+      date: transaction.date,
+      description: transaction.description || '',
+      category: transaction.category,
+      amount: Math.abs(transaction.amount).toString()
+    });
+    setEditingId(transaction.id);
+    setOpen(true);
+  };
+
+  const handleDelete = async (id: number) => {
+    try {
+      await axios.delete(`http://localhost:8000/api/transactions/${id}/`);
+      setTransactions(prev => prev.filter(t => t.id !== id));
+    } catch (error) {
+      console.error("Failed to delete transaction:", error);
     }
   };
 
@@ -107,12 +146,13 @@ const Transactions = () => {
                 <TableCell>Description</TableCell>
                 <TableCell>Category</TableCell>
                 <TableCell align="right">Amount ($)</TableCell>
+                <TableCell align="center">Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {transactions.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} align="center">No transactions found.</TableCell>
+                  <TableCell colSpan={5} align="center">No transactions found.</TableCell>
                 </TableRow>
               ) : (
                 transactions.map((t) => (
@@ -126,6 +166,10 @@ const Transactions = () => {
                     >
                       {Number(t.amount).toFixed(2)}
                     </TableCell>
+                    <TableCell align="center">
+                      <IconButton onClick={() => handleEdit(t)}><EditIcon /></IconButton>
+                      <IconButton onClick={() => handleDelete(t.id)}><DeleteIcon /></IconButton>
+                    </TableCell>
                   </TableRow>
                 ))
               )}
@@ -135,7 +179,7 @@ const Transactions = () => {
       </Paper>
 
       <Dialog open={open} onClose={() => setOpen(false)}>
-        <DialogTitle>Add New Transaction</DialogTitle>
+        <DialogTitle>{editingId ? 'Edit Transaction' : 'Add New Transaction'}</DialogTitle>
         <DialogContent>
           <TextField
             margin="dense"
@@ -186,11 +230,11 @@ const Transactions = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpen(false)}>Cancel</Button>
-          <Button onClick={handleSubmit}>Add</Button>
+          <Button onClick={handleSubmit}>{editingId ? 'Update' : 'Add'}</Button>
         </DialogActions>
       </Dialog>
     </>
   );
 };
 
-export default Transactions; 
+export default Transactions;
