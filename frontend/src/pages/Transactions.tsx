@@ -1,9 +1,26 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 import {
-  Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  Button, Box, Dialog, DialogTitle, DialogContent, DialogActions, TextField,
-  FormControl, InputLabel, Select, MenuItem, SelectChangeEvent, FormHelperText, IconButton
+  Box,
+  Typography,
+  Paper,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  IconButton,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  SelectChangeEvent
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
@@ -17,6 +34,11 @@ interface Transaction {
   amount: number;
 }
 
+interface Category {
+  id: number;
+  name: string;
+}
+
 interface NewTransactionForm {
   date: string;
   description: string;
@@ -26,6 +48,7 @@ interface NewTransactionForm {
 
 const Transactions = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [newTransaction, setNewTransaction] = useState<NewTransactionForm>({
@@ -37,6 +60,10 @@ const Transactions = () => {
     axios.get('http://localhost:8000/api/transactions/')
       .then(res => setTransactions(res.data))
       .catch(err => console.error("Failed to fetch transactions", err));
+
+    axios.get('http://localhost:8000/api/categories/')
+      .then(res => setCategories(res.data))
+      .catch(err => console.error("Failed to fetch categories", err));
   }, []);
 
   const handleChange = (
@@ -113,7 +140,7 @@ const Transactions = () => {
   const handleEdit = (transaction: Transaction) => {
     setNewTransaction({
       date: transaction.date,
-      description: transaction.description || '',
+      description: transaction.description || 'No description',
       category: transaction.category,
       amount: Math.abs(transaction.amount).toString()
     });
@@ -138,44 +165,42 @@ const Transactions = () => {
       </Box>
 
       <Paper elevation={3}>
-        <TableContainer>
-          <Table>
-            <TableHead>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>Date</TableCell>
+              <TableCell>Description</TableCell>
+              <TableCell>Category</TableCell>
+              <TableCell align="right">Amount ($)</TableCell>
+              <TableCell align="center">Actions</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {transactions.length === 0 ? (
               <TableRow>
-                <TableCell>Date</TableCell>
-                <TableCell>Description</TableCell>
-                <TableCell>Category</TableCell>
-                <TableCell align="right">Amount ($)</TableCell>
-                <TableCell align="center">Actions</TableCell>
+                <TableCell colSpan={5} align="center">No transactions found.</TableCell>
               </TableRow>
-            </TableHead>
-            <TableBody>
-              {transactions.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} align="center">No transactions found.</TableCell>
+            ) : (
+              transactions.map((t) => (
+                <TableRow key={t.id}>
+                  <TableCell>{t.date}</TableCell>
+                  <TableCell>{t.description || 'No description'}</TableCell>
+                  <TableCell>{t.category || ''}</TableCell>
+                  <TableCell
+                    align="right"
+                    sx={{ color: t.amount < 0 ? 'error.main' : 'success.main', fontWeight: 'bold' }}
+                  >
+                    {Number(t.amount).toFixed(2)}
+                  </TableCell>
+                  <TableCell align="center">
+                    <IconButton onClick={() => handleEdit(t)}><EditIcon /></IconButton>
+                    <IconButton onClick={() => handleDelete(t.id)}><DeleteIcon /></IconButton>
+                  </TableCell>
                 </TableRow>
-              ) : (
-                transactions.map((t) => (
-                  <TableRow key={t.id}>
-                    <TableCell>{t.date}</TableCell>
-                    <TableCell>{t.description || '—'}</TableCell>
-                    <TableCell>{t.category || '—'}</TableCell>
-                    <TableCell
-                      align="right"
-                      sx={{ color: t.amount < 0 ? 'error.main' : 'success.main', fontWeight: 'bold' }}
-                    >
-                      {Number(t.amount).toFixed(2)}
-                    </TableCell>
-                    <TableCell align="center">
-                      <IconButton onClick={() => handleEdit(t)}><EditIcon /></IconButton>
-                      <IconButton onClick={() => handleDelete(t.id)}><DeleteIcon /></IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+              ))
+            )}
+          </TableBody>
+        </Table>
       </Paper>
 
       <Dialog open={open} onClose={() => setOpen(false)}>
@@ -208,13 +233,10 @@ const Transactions = () => {
               value={newTransaction.category}
               onChange={handleChange}
             >
-              <MenuItem value="Food">Food</MenuItem>
-              <MenuItem value="Transportation">Transportation</MenuItem>
-              <MenuItem value="Utilities">Utilities</MenuItem>
-              <MenuItem value="Entertainment">Entertainment</MenuItem>
-              <MenuItem value="Income">Income</MenuItem>
+              {categories.map((cat) => (
+                <MenuItem key={cat.id} value={cat.name}>{cat.name}</MenuItem>
+              ))}
             </Select>
-            {errors.category && <FormHelperText>{errors.category}</FormHelperText>}
           </FormControl>
           <TextField
             margin="dense"

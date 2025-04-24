@@ -1,16 +1,16 @@
 import { useState, useEffect } from 'react';
-import {
-  Box,
-  Grid,
-  Paper,
-  Typography,
-  Card,
-  CardContent,
-  List,
-  ListItem,
-  ListItemText,
-  Divider,
-} from '@mui/material';
+import axios from 'axios'
+import Box from '@mui/material/Box';
+import Paper from '@mui/material/Paper';
+import Typography from '@mui/material/Typography';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
+import List from '@mui/material/List';
+import ListItem from '@mui/material/ListItem';
+import ListItemText from '@mui/material/ListItemText';
+import Divider from '@mui/material/Divider';
+import Grid from '@mui/material/Grid'; // ✅ the correct Grid component
+
 import {
   TrendingUp as TrendingUpIcon,
   TrendingDown as TrendingDownIcon,
@@ -31,17 +31,16 @@ const Dashboard = () => {
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
 
   useEffect(() => {
-    // TODO: Fetch actual data from backend
-    // Mock data for now
-    setMonthlySpending(2500);
-    setMonthlyBudget(3000);
-    setYearlySpending(30000);
-    setRecentTransactions([
-      { id: 1, description: 'Grocery Shopping', amount: -150, date: '2024-03-15' },
-      { id: 2, description: 'Salary', amount: 5000, date: '2024-03-01' },
-      { id: 3, description: 'Dining Out', amount: -75, date: '2024-03-14' },
-    ]);
+    axios.get('http://localhost:8000/api/dashboard/')
+      .then(res => {
+        setMonthlySpending(res.data.monthlySpending);
+        setMonthlyBudget(res.data.monthlyBudget);
+        setYearlySpending(res.data.yearlySpending);
+        setRecentTransactions(res.data.recentTransactions);
+      })
+      .catch(err => console.error("Failed to fetch dashboard data", err));
   }, []);
+  
 
   const getBudgetStatus = () => {
     const percentage = (monthlySpending / monthlyBudget) * 100;

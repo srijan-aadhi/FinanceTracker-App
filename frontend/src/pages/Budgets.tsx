@@ -1,168 +1,201 @@
-import { useState } from 'react';
-import { Typography, Paper, Box, Grid, LinearProgress, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, FormControl, InputLabel, Select, MenuItem, SelectChangeEvent } from '@mui/material';
+import { useEffect, useState } from 'react';
+import axios from 'axios';
+import {
+  Box,
+  Typography,
+  Paper,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  IconButton,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  SelectChangeEvent
+} from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
 
-// Define budget interface
 interface Budget {
   id: number;
-  category: string;
-  budget: number;
-  spent: number;
+  category: number;
+  amount: number;
+  month: string;
 }
 
-// Define budget form state interface
+interface Category {
+  id: number;
+  name: string;
+}
+
 interface BudgetForm {
   category: string;
-  budget: string;
-  spent: string;
+  amount: string;
+  month: string;
 }
 
-// Example budget data
-const initialBudgets: Budget[] = [
-  { id: 1, category: 'Food', budget: 500, spent: 320 },
-  { id: 2, category: 'Transportation', budget: 300, spent: 150 },
-  { id: 3, category: 'Entertainment', budget: 200, spent: 210 },
-  { id: 4, category: 'Utilities', budget: 350, spent: 300 },
-];
-
 const Budgets = () => {
-  const [budgets, setBudgets] = useState<Budget[]>(initialBudgets);
-  const [open, setOpen] = useState<boolean>(false);
-  const [newBudget, setNewBudget] = useState<BudgetForm>({
-    category: '',
-    budget: '',
-    spent: '0'
-  });
+  const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [openBudget, setOpenBudget] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [form, setForm] = useState<BudgetForm>({ category: '', amount: '', month: '' });
 
-  const handleOpen = () => {
-    setOpen(true);
-  };
+  useEffect(() => {
+    axios.get('http://localhost:8000/api/budgets/')
+      .then(res => setBudgets(res.data))
+      .catch(err => console.error("Failed to fetch budgets", err));
 
-  const handleClose = () => {
-    setOpen(false);
-  };
+    axios.get('http://localhost:8000/api/categories/')
+      .then(res => setCategories(res.data))
+      .catch(err => console.error("Failed to fetch categories", err));
+  }, []);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent
+  ) => {
     const { name, value } = e.target;
-    setNewBudget({ ...newBudget, [name]: value });
+    setForm({ ...form, [name]: value });
   };
 
-  const handleSubmit = () => {
-    const budget: Budget = {
-      id: budgets.length + 1,
-      category: newBudget.category,
-      budget: parseFloat(newBudget.budget),
-      spent: parseFloat(newBudget.spent)
+  const handleSubmit = async () => {
+    const selectedCategory = categories.find(cat => cat.name === form.category);
+    const budgetData = {
+      category: selectedCategory?.id,
+      amount: parseFloat(form.amount),
+      month: `${form.month}-01`,
     };
-    
-    setBudgets([...budgets, budget]);
-    setNewBudget({ category: '', budget: '', spent: '0' });
-    handleClose();
+
+    try {
+      if (editingId) {
+        const res = await axios.put(`http://localhost:8000/api/budgets/${editingId}/`, budgetData);
+        setBudgets(prev => prev.map(b => b.id === editingId ? res.data : b));
+      } else {
+        const res = await axios.post('http://localhost:8000/api/budgets/', budgetData);
+        setBudgets(prev => [...prev, res.data]);
+      }
+      setForm({ category: '', amount: '', month: '' });
+      setEditingId(null);
+      setOpenBudget(false);
+    } catch (err) {
+      console.error("Failed to save budget", err);
+    }
+  };
+
+  const handleEdit = (budget: Budget) => {
+    const matchedCategory = categories.find(c => c.id === budget.category)?.name || '';
+    const formattedMonth = budget.month.slice(0, 7);
+    setForm({
+      category: matchedCategory,
+      amount: budget.amount.toString(),
+      month: formattedMonth,
+    });
+    setEditingId(budget.id);
+    setOpenBudget(true);
+  };
+
+  const handleDelete = async (id: number) => {
+    try {
+      await axios.delete(`http://localhost:8000/api/budgets/${id}/`);
+      setBudgets(prev => prev.filter(b => b.id !== id));
+    } catch (err) {
+      console.error("Failed to delete budget", err);
+    }
   };
 
   return (
     <>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" component="h1" gutterBottom>
-          Budgets
-        </Typography>
-        <Button 
-          variant="contained" 
-          color="primary" 
-          startIcon={<AddIcon />}
-          onClick={handleOpen}
-        >
-          Create Budget
-        </Button>
+        <Typography variant="h4">Budgets</Typography>
+        <Button onClick={() => {
+          setForm({ category: '', amount: '', month: '' });
+          setEditingId(null);
+          setOpenBudget(true);
+        }} variant="contained" startIcon={<AddIcon />}>Add Budget</Button>
       </Box>
 
-      <Grid container spacing={3}>
-        {budgets.map((budget) => {
-          const progress = (budget.spent / budget.budget) * 100;
-          const isOverBudget = budget.spent > budget.budget;
-          
-          return (
-            // Fix: Changed the Grid item props to properly match Material-UI's expected types
-            <Grid item xs={12} md={6} key={budget.id.toString()}>
-              <Paper 
-                elevation={3} 
-                sx={{ 
-                  p: 3, 
-                  borderTop: '5px solid',
-                  borderColor: isOverBudget ? 'error.main' : 'primary.main'
-                }}
-              >
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography variant="h6">{budget.category}</Typography>
-                  <Typography variant="h6" color={isOverBudget ? 'error' : 'primary'}>
-                    ${budget.spent} / ${budget.budget}
-                  </Typography>
-                </Box>
-                
-                <LinearProgress 
-                  variant="determinate" 
-                  value={Math.min(progress, 100)} 
-                  color={isOverBudget ? "error" : "primary"}
-                  sx={{ height: 10, borderRadius: 5 }}
-                />
-                
-                <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
-                  <Typography variant="body2" color={isOverBudget ? 'error' : 'text.secondary'}>
-                    {isOverBudget ? 'Over budget by $' + (budget.spent - budget.budget).toFixed(2) : 
-                      'Remaining: $' + (budget.budget - budget.spent).toFixed(2)}
-                  </Typography>
-                </Box>
-              </Paper>
-            </Grid>
-          );
-        })}
-      </Grid>
+      <Paper elevation={3} sx={{ mb: 3 }}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>Category</TableCell>
+              <TableCell>Month</TableCell>
+              <TableCell align="right">Amount ($)</TableCell>
+              <TableCell align="center">Actions</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {budgets.map(b => {
+              const categoryName = categories.find(c => c.id === b.category)?.name || b.category;
+              return (
+                <TableRow key={b.id}>
+                  <TableCell>{categoryName}</TableCell>
+                  <TableCell>{b.month.slice(0, 7)}</TableCell>
+                  <TableCell align="right">{Number(b.amount).toFixed(2)}</TableCell>
+                  <TableCell align="center">
+                    <IconButton onClick={() => handleEdit(b)}><EditIcon /></IconButton>
+                    <IconButton onClick={() => handleDelete(b.id)}><DeleteIcon /></IconButton>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </Paper>
 
-      {/* Create Budget Dialog */}
-      <Dialog open={open} onClose={handleClose}>
-        <DialogTitle>Create New Budget</DialogTitle>
+      <Dialog open={openBudget} onClose={() => setOpenBudget(false)}>
+        <DialogTitle>{editingId ? 'Edit Budget' : 'Add New Budget'}</DialogTitle>
         <DialogContent>
           <FormControl fullWidth margin="dense">
             <InputLabel>Category</InputLabel>
             <Select
               name="category"
-              value={newBudget.category}
+              value={form.category}
               onChange={handleChange}
+              label="Category"
             >
-              <MenuItem value="Food">Food</MenuItem>
-              <MenuItem value="Transportation">Transportation</MenuItem>
-              <MenuItem value="Utilities">Utilities</MenuItem>
-              <MenuItem value="Entertainment">Entertainment</MenuItem>
-              <MenuItem value="Shopping">Shopping</MenuItem>
-              <MenuItem value="Housing">Housing</MenuItem>
+              {categories.length === 0 ? (
+                <MenuItem disabled>No categories available</MenuItem>
+              ) : (
+                categories.map((cat) => (
+                  <MenuItem key={cat.id} value={cat.name}>{cat.name}</MenuItem>
+                ))
+              )}
             </Select>
           </FormControl>
           <TextField
             margin="dense"
-            name="budget"
-            label="Budget Amount ($)"
-            type="number"
+            name="month"
+            label="Month"
+            type="month"
             fullWidth
-            value={newBudget.budget}
+            InputLabelProps={{ shrink: true }}
+            value={form.month}
             onChange={handleChange}
           />
           <TextField
             margin="dense"
-            name="spent"
-            label="Initial Spent Amount ($)"
+            name="amount"
+            label="Amount"
             type="number"
             fullWidth
-            value={newBudget.spent}
+            value={form.amount}
             onChange={handleChange}
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleClose} color="primary">
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit} color="primary">
-            Create
-          </Button>
+          <Button onClick={() => setOpenBudget(false)}>Cancel</Button>
+          <Button onClick={handleSubmit}>{editingId ? 'Update' : 'Add'}</Button>
         </DialogActions>
       </Dialog>
     </>
