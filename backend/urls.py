@@ -23,5 +23,5 @@ urlpatterns = [
     path('register/', RegisterUserView.as_view(), name='register_user'),
     path('me/', views.user_info, name='user_info'),
     path('profile/', views.profile_view, name='profile'),
-
+    path('users/set_password/', views.set_password, name='set-password'),
 ]

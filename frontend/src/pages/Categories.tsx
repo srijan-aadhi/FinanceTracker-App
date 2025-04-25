@@ -1,9 +1,26 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, ChangeEvent, FormEvent } from 'react';
 import api from '../api';
 import {
-  Box, Typography, Paper, List, ListItem, ListItemText, IconButton,
-  Chip, Button, Dialog, DialogTitle, DialogContent, DialogActions,
-  TextField, FormControl, InputLabel, Select, MenuItem, SelectChangeEvent
+  Box,
+  Typography,
+  Paper,
+  List,
+  ListItem,
+  ListItemText,
+  IconButton,
+  Chip,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  SelectChangeEvent,
+  Grid,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
@@ -59,7 +76,7 @@ const Categories = () => {
 
   const handleClose = () => setOpen(false);
 
-  const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleTextChange = (e: ChangeEvent<HTMLInputElement>) => {
     setCurrentCategory({ ...currentCategory, [e.target.name]: e.target.value });
   };
 
@@ -101,7 +118,7 @@ const Categories = () => {
 
       <Paper elevation={3} sx={{ p: 2 }}>
         <List>
-          {categories.map((category) => {
+          {categories.map(category => {
             const isDefault = defaultCategoryNames.includes(category.name);
             return (
               <ListItem key={category.id} divider>
@@ -114,8 +131,12 @@ const Categories = () => {
                     mr: 2,
                   }}
                 />
-                <ListItemText
-                  primary={<Typography variant="h6">{category.name}</Typography>}
+                <ListItemText disableTypography
+                  primary={
+                    <Typography variant="h6" component="span">
+                      {category.name}
+                    </Typography>
+                  }
                   secondary={
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                       <Chip
@@ -124,11 +145,10 @@ const Categories = () => {
                             ? category.type.charAt(0).toUpperCase() + category.type.slice(1)
                             : 'Unknown'
                         }
-                         
                         size="small"
                         color={category.type === 'income' ? 'success' : 'default'}
                       />
-                      <Typography variant="body2">
+                      <Typography variant="body2" component="span">
                         {category.type === 'income'
                           ? `Total Earned: $${category.total_earned?.toFixed(2) ?? '0.00'}`
                           : `Total Spent: $${category.total_spent?.toFixed(2) ?? '0.00'}`}
@@ -177,7 +197,9 @@ const Categories = () => {
             </Select>
           </FormControl>
           <Box sx={{ mt: 2 }}>
-            <Typography variant="body2" gutterBottom>Color</Typography>
+            <Typography variant="body2" gutterBottom>
+              Color
+            </Typography>
             <TextField
               name="color"
               type="color"

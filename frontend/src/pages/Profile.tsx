@@ -8,9 +8,10 @@ import {
   Grid,
   TextField,
   Divider,
-  CircularProgress,
+  CircularProgress
 } from '@mui/material';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import SaveIcon from '@mui/icons-material/Save';
 import api from '../api';
 
@@ -18,6 +19,12 @@ interface ProfileData {
   full_name: string;
   email: string;
   currency: string;
+}
+
+interface PasswordData {
+  current: string;
+  new: string;
+  confirm: string;
 }
 
 const Profile = () => {
@@ -28,7 +35,10 @@ const Profile = () => {
     currency: 'USD',
   });
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+
+  const [password, setPassword] = useState<PasswordData>({ current: '', new: '', confirm: '' });
+  const [savingPassword, setSavingPassword] = useState(false);
 
   useEffect(() => {
     api
@@ -41,14 +51,16 @@ const Profile = () => {
       .finally(() => setLoading(false));
   }, []);
 
-  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleProfileChange = (
+    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
     const { name, value } = e.target;
     setForm(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+  const handleProfileSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setSaving(true);
+    setSavingProfile(true);
     try {
       await api.put('/profile/', form);
       alert('Profile updated successfully');
@@ -56,7 +68,34 @@ const Profile = () => {
       console.error('Failed to update profile', err);
       alert('Error updating profile');
     } finally {
-      setSaving(false);
+      setSavingProfile(false);
+    }
+  };
+
+  const handlePasswordChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setPassword(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handlePasswordSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (password.new !== password.confirm) {
+      alert('New passwords do not match');
+      return;
+    }
+    setSavingPassword(true);
+    try {
+      await api.post('/users/set_password/', {
+        current_password: password.current,
+        new_password: password.new,
+      });
+      alert('Password changed successfully');
+      setPassword({ current: '', new: '', confirm: '' });
+    } catch (err) {
+      console.error('Failed to change password', err);
+      alert('Error changing password');
+    } finally {
+      setSavingPassword(false);
     }
   };
 
@@ -74,6 +113,7 @@ const Profile = () => {
         Profile Settings
       </Typography>
       <Grid container spacing={3}>
+        {/* Profile Info */}
         <Grid item xs={12} md={6}>
           <Paper elevation={3} sx={{ p: 3 }}>
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 3 }}>
@@ -86,14 +126,14 @@ const Profile = () => {
               </Typography>
             </Box>
             <Divider sx={{ my: 2 }} />
-            <Box component="form" onSubmit={handleSubmit}>
+            <Box component="form" onSubmit={handleProfileSubmit}>
               <TextField
                 margin="normal"
                 fullWidth
                 label="Full Name"
                 name="full_name"
                 value={form.full_name}
-                onChange={handleChange}
+                onChange={handleProfileChange}
               />
               <TextField
                 margin="normal"
@@ -102,7 +142,7 @@ const Profile = () => {
                 name="email"
                 type="email"
                 value={form.email}
-                onChange={handleChange}
+                onChange={handleProfileChange}
               />
               <TextField
                 margin="normal"
@@ -111,7 +151,7 @@ const Profile = () => {
                 name="currency"
                 select
                 value={form.currency}
-                onChange={handleChange}
+                onChange={handleProfileChange}
                 SelectProps={{ native: true }}
               >
                 <option value="USD">USD ($)</option>
@@ -124,9 +164,55 @@ const Profile = () => {
                 variant="contained"
                 startIcon={<SaveIcon />}
                 sx={{ mt: 3 }}
-                disabled={saving}
+                disabled={savingProfile}
               >
-                {saving ? 'Saving...' : 'Save Changes'}
+                {savingProfile ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </Box>
+          </Paper>
+        </Grid>
+        {/* Password Change */}
+        <Grid item xs={12} md={6}>
+          <Paper elevation={3} sx={{ p: 3 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+              <VpnKeyIcon sx={{ mr: 1 }} />
+              <Typography variant="h5">Change Password</Typography>
+            </Box>
+            <Box component="form" onSubmit={handlePasswordSubmit}>
+              <TextField
+                margin="normal"
+                fullWidth
+                label="Current Password"
+                name="current"
+                type="password"
+                value={password.current}
+                onChange={handlePasswordChange}
+              />
+              <TextField
+                margin="normal"
+                fullWidth
+                label="New Password"
+                name="new"
+                type="password"
+                value={password.new}
+                onChange={handlePasswordChange}
+              />
+              <TextField
+                margin="normal"
+                fullWidth
+                label="Confirm New Password"
+                name="confirm"
+                type="password"
+                value={password.confirm}
+                onChange={handlePasswordChange}
+              />
+              <Button
+                type="submit"
+                variant="contained"
+                sx={{ mt: 3 }}
+                disabled={savingPassword}
+              >
+                {savingPassword ? 'Updating...' : 'Update Password'}
               </Button>
             </Box>
           </Paper>

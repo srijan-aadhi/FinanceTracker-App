@@ -12,6 +12,31 @@ from django.utils.timezone import now
 from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def set_password(request):
+    """
+    POST /api/users/set_password/
+    {
+      "current_password": "...",
+      "new_password": "..."
+    }
+    """
+    user = request.user
+    curr = request.data.get('current_password')
+    new  = request.data.get('new_password')
+
+    # Check current password
+    if not user.check_password(curr):
+        return Response({'detail': 'Current password is incorrect.'}, status=400)
+
+    # Set the new one
+    user.set_password(new)
+    user.save()
+
+    return Response({'detail': 'Password updated successfully.'})
+
+
 @api_view(['GET', 'PUT'])
 @permission_classes([IsAuthenticated])
 def profile_view(request):
