@@ -1,65 +1,104 @@
-import { useEffect, useState } from "react";
-import api from "../api";
+import { useEffect, useState } from 'react';
+import api from '../api';
 import {
-  Paper,
-  Typography,
-  Box,
-  CircularProgress,
-} from "@mui/material";
+  Paper, Typography, Box, CircularProgress,
+} from '@mui/material';
 import {
   ResponsiveContainer,
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-} from "recharts";
+  BarChart, Bar,
+  XAxis, YAxis,
+  CartesianGrid, Tooltip, Legend,
+} from 'recharts';
 
-interface AnnualPoint {
-  year: number;
-  total: number; // absolute spend (positive number)
+
+interface RawPoint { year: number; income: number; expense: number; }
+interface ChartPoint { year: number; income: number; expense: number; }
+
+
+function buildYearBaseline(yearsBack = 19): ChartPoint[] {
+  const current = new Date().getFullYear();
+  return Array.from({ length: yearsBack + 1 }, (_, i) => {
+    const y = current - yearsBack + i;
+    return { year: y, income: 0, expense: 0 };
+  });
 }
 
-/**
- * Line chart of total annual spending for the current user.
- * Expects backend GET /analytics/annual-spending/ → [{ year, total }, ...]
- */
-export default function AnnualSpending() {
-  const [data, setData] = useState<AnnualPoint[] | null>(null);
+// choose a nice tick size (100, 500, 1 000, 2 000, 5 000, …)
+function getStepSize(max: number): number {
+  if (max <= 1000) return 100;
+  const mag = 10 ** Math.floor(Math.log10(max)); 
+  const scaled = max / mag;
+  if (scaled <= 2) return mag / 2;      
+  if (scaled <= 5) return mag;          
+  return mag * 2;                      
+}
 
+
+export default function AnnualSpending() {
+  const [data, setData] = useState<ChartPoint[] | null>(null);
+
+  
   useEffect(() => {
-    api
-      .get<AnnualPoint[]>("/analytics/annual-spending/")
-      .then((res) => setData(res.data))
-      .catch((err) => {
-        console.error("Failed to fetch annual spending", err);
-        setData([]);
+    api.get<RawPoint[]>('/analytics/annual-spending/')
+      .then(res => {
+        const baseline = buildYearBaseline(19);          // last 20 years
+        const merged = baseline.map((pt) => {
+          const found = res.data.find(d => d.year === pt.year);
+          return found ? { ...pt, ...found } : pt;
+        });
+        setData(merged);
+      })
+      .catch(err => {
+        console.error('Failed to fetch annual spending', err);
+        setData([]);   // still render empty state
       });
   }, []);
 
-  return (
-    <Paper sx={{ p: 3, maxWidth: 600 }}>
-      <Typography variant="h4" gutterBottom>
-        Annual Spending
-      </Typography>
-
-      {data === null ? (
-        <Box sx={{ width: "100%", display: "flex", justifyContent: "center" }}>
+  /* loading / empty */
+  if (data === null) {
+    return (
+      <Paper sx={{ p: 3, width: '100%', flexGrow: 1 }}>
+        <Typography variant="h4" gutterBottom>Annual Spending vs Income</Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'center' }}>
           <CircularProgress />
         </Box>
-      ) : data.length === 0 ? (
-        <Typography variant="body2">No data yet.</Typography>
+      </Paper>
+    );
+  }
+
+  /* derive Y-axis ticks */
+  const maxVal = Math.max(...data.map(d => Math.max(d.income, d.expense)));
+  const step   = getStepSize(maxVal);
+  const top    = Math.ceil(maxVal / step) * step || step;
+  const ticks  = Array.from({ length: Math.ceil(top / step) + 1 }, (_, i) => i * step);
+
+  return (
+    <Paper sx={{ p: 3, width: '100%', flexGrow: 1 }}>
+      <Typography variant="h4" gutterBottom>Annual Spending vs Income</Typography>
+
+      {data.length === 0 ? (
+        <Typography>No data yet.</Typography>
       ) : (
-        <Box sx={{ width: "100%", height: 400 }}>
+        <Box sx={{ width: '100%', height: 550 }}>
           <ResponsiveContainer>
-            <LineChart data={data} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
+            <BarChart
+              data={data}
+              margin={{ top: 20, right: 30, left: 10, bottom: 0 }}
+              barCategoryGap="15%"
+              barSize={30}
+            >
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="year" />
-              <YAxis tickFormatter={(v) => `$${v / 1000}k`} />
-              <Tooltip formatter={(v:number) => `$${v.toLocaleString()}`} />
-              <Line type="monotone" dataKey="total" dot />
-            </LineChart>
+              <YAxis
+                ticks={ticks}
+                domain={[0, top]}
+                tickFormatter={(v) => `$${v.toLocaleString()}`}
+              />
+              <Tooltip formatter={(v: number) => `$${v.toLocaleString()}`} />
+              <Legend />
+              <Bar dataKey="expense" name="Expenses" fill="#f44336" />
+              <Bar dataKey="income"  name="Income"  fill="#4caf50" />
+            </BarChart>
           </ResponsiveContainer>
         </Box>
       )}

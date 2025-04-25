@@ -45,7 +45,7 @@ const Register = () => {
           password: values.password,
         });
 
-        console.log("✅ Registration successful:", response.data);
+        console.log("Registration successful:", response.data);
         navigate('/login');
       } catch (err: any) {
         if (err.response?.data?.error) {

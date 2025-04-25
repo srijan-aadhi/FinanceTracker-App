@@ -1,6 +1,6 @@
 from rest_framework.response import Response
 from rest_framework import status
-from django.db.models import Sum
+from django.db.models import Sum, Case, When, F
 from .models import Transaction, Budget, Category, Profile
 from .serializers import TransactionSerializer, BudgetSerializer, CategorySerializer, UserSerializer, ProfileSerializer
 from rest_framework.permissions import IsAuthenticated
@@ -18,24 +18,32 @@ from django.db.models.functions import ExtractYear
 @permission_classes([IsAuthenticated])
 def annual_spending(request):
     """
-    Returns [{year: 2023, total: 5400.75}, …] of *negative* transaction amounts
-    (expenses) aggregated per calendar year for the current user.
+    For the current user, return
+      [{ "year": 2024, "income": 6900.00, "expense": 4100.25 }, …]
+    where 'income' is the sum of positive amounts and 'expense'
+    is the absolute sum of negative amounts.
     """
     qs = (
         Transaction.objects
-        .filter(user=request.user, amount__lt=0)
+        .filter(user=request.user)
         .annotate(year=ExtractYear("date"))
         .values("year")
-        .annotate(total=Sum("amount"))          # total is negative
+        .annotate(
+            income=Sum(Case(When(amount__gt=0, then=F("amount")))),
+            expense=Sum(Case(When(amount__lt=0, then=F("amount")))),
+        )
         .order_by("year")
     )
 
     data = [
-        {"year": row["year"], "total": abs(row["total"])}
+        {
+            "year":    row["year"],
+            "income":  float(row["income"]  or 0),
+            "expense": abs(float(row["expense"] or 0)),
+        }
         for row in qs
     ]
     return Response(data)
-
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
