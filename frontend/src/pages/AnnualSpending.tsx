@@ -8,40 +8,38 @@ import {
 } from "@mui/material";
 import {
   ResponsiveContainer,
-  BarChart,
-  Bar,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
 } from "recharts";
 
-interface AnnualSpendingDatum {
+interface AnnualPoint {
   year: number;
-  total: number; // aggregated absolute spend for that calendar year (positive number)
+  total: number; // absolute spend (positive number)
 }
 
 /**
- * Displays a simple bar chart of total spending per calendar year for the
- * currently‑logged‑in user.
- *
- * Backend: expects GET /analytics/annual-spending/ → [{ year: 2023, total: 1234.56 }, ...]
+ * Line chart of total annual spending for the current user.
+ * Expects backend GET /analytics/annual-spending/ → [{ year, total }, ...]
  */
 export default function AnnualSpending() {
-  const [data, setData] = useState<AnnualSpendingDatum[] | null>(null);
+  const [data, setData] = useState<AnnualPoint[] | null>(null);
 
   useEffect(() => {
     api
-      .get<AnnualSpendingDatum[]>("/analytics/annual-spending/")
+      .get<AnnualPoint[]>("/analytics/annual-spending/")
       .then((res) => setData(res.data))
       .catch((err) => {
-        console.error("Failed to fetch annual spending data", err);
+        console.error("Failed to fetch annual spending", err);
         setData([]);
       });
   }, []);
 
   return (
-    <Paper sx={{ p: 3 }}>
+    <Paper sx={{ p: 3, maxWidth: 600 }}>
       <Typography variant="h4" gutterBottom>
         Annual Spending
       </Typography>
@@ -50,16 +48,18 @@ export default function AnnualSpending() {
         <Box sx={{ width: "100%", display: "flex", justifyContent: "center" }}>
           <CircularProgress />
         </Box>
+      ) : data.length === 0 ? (
+        <Typography variant="body2">No data yet.</Typography>
       ) : (
         <Box sx={{ width: "100%", height: 400 }}>
           <ResponsiveContainer>
-            <BarChart data={data}>
+            <LineChart data={data} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="year" tick={{ fontSize: 12 }} />
+              <XAxis dataKey="year" />
               <YAxis tickFormatter={(v) => `$${v / 1000}k`} />
               <Tooltip formatter={(v:number) => `$${v.toLocaleString()}`} />
-              <Bar dataKey="total" />
-            </BarChart>
+              <Line type="monotone" dataKey="total" dot />
+            </LineChart>
           </ResponsiveContainer>
         </Box>
       )}

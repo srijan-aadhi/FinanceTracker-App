@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
+import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import {
   AppBar,
   Box,
@@ -22,6 +23,7 @@ import {
   Category as CategoryIcon,
   AccountCircle as AccountCircleIcon,
   Logout as LogoutIcon,
+  
 } from '@mui/icons-material';
 
 const drawerWidth = 240;
@@ -41,6 +43,7 @@ const Layout = () => {
     { text: 'Categories', icon: <CategoryIcon />, path: '/categories' },
     { text: 'Budgets', icon: <AccountBalanceIcon />, path: '/budgets' },
     { text: 'Profile', icon: <AccountCircleIcon />, path: '/profile' },
+    { text: 'Annual Spending', icon: <AttachMoneyIcon /> , path: '/annual-spending' }, 
   ];
 
   const drawer = (

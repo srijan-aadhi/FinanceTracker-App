@@ -11,6 +11,31 @@ from django.contrib.auth import get_user_model
 from django.utils.timezone import now  
 from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from django.db.models.functions import ExtractYear
+
+@api_view(["GET"])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def annual_spending(request):
+    """
+    Returns [{year: 2023, total: 5400.75}, …] of *negative* transaction amounts
+    (expenses) aggregated per calendar year for the current user.
+    """
+    qs = (
+        Transaction.objects
+        .filter(user=request.user, amount__lt=0)
+        .annotate(year=ExtractYear("date"))
+        .values("year")
+        .annotate(total=Sum("amount"))          # total is negative
+        .order_by("year")
+    )
+
+    data = [
+        {"year": row["year"], "total": abs(row["total"])}
+        for row in qs
+    ]
+    return Response(data)
+
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])

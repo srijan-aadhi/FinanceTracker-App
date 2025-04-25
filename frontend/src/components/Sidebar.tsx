@@ -13,6 +13,7 @@ const navItems = [
   { label: 'Categories', path: '/categories' },
   { label: 'Transactions', path: '/transactions' },
   { label: 'Profile', path: '/profile' },
+  { label: 'Annual Spending', path: '/annual-spending' }, 
 ];
 
 const Sidebar = () => {

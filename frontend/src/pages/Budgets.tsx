@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import api from '../api';
-import { format } from 'date-fns';
+import { format , parseISO} from 'date-fns';
 import {
   Box,
   Typography,
@@ -104,7 +104,7 @@ const Budgets = () => {
 
   const handleEdit = (budget: Budget) => {
     const matchedCategory = categories.find(c => c.id === budget.category)?.name || '';
-    const formattedMonth = format(new Date(budget.month), 'MM-yyyy');
+    const formattedMonth = format(parseISO(budget.month), 'MM-yyyy');
     setForm({
       category: matchedCategory,
       amount: budget.amount.toString(),
@@ -156,7 +156,7 @@ const Budgets = () => {
               return (
                 <TableRow key={b.id}>
                   <TableCell>{categoryName}</TableCell>
-                  <TableCell>{format(new Date(b.month), 'MM-yyyy')}</TableCell>
+                  <TableCell>{format(parseISO(b.month), 'MM-yyyy')}</TableCell>
                   <TableCell align="right">{Number(b.amount).toFixed(2)}</TableCell>
                   <TableCell align="center">
                     <IconButton onClick={() => handleEdit(b)}>
