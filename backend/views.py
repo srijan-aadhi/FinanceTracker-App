@@ -1,7 +1,7 @@
 from rest_framework.response import Response
 from rest_framework import status
 from django.db.models import Sum
-from .models import Transaction, Budget, Category
+from .models import Transaction, Budget, Category, Profile
 from .serializers import TransactionSerializer, BudgetSerializer, CategorySerializer, UserSerializer, ProfileSerializer
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
@@ -13,30 +13,30 @@ from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 @api_view(['GET', 'PUT'])
-@authentication_classes([JWTAuthentication]) 
 @permission_classes([IsAuthenticated])
 def profile_view(request):
-    profile = request.user.profile
+    # Get or create the Profile for this user
+    profile, _ = Profile.objects.get_or_create(user=request.user)
 
     if request.method == 'GET':
         return Response(ProfileSerializer(profile).data)
 
-    # Extract incoming data
+    # For PUT, pull out form data
     data = request.data
     full_name = data.get('full_name', '')
-    email = data.get('email')
-    currency = data.get('currency')
+    email     = data.get('email')
+    currency  = data.get('currency')
 
-    # Update Profile
+    # Update currency
     if currency:
         profile.currency = currency
         profile.save()
 
     # Update User fields
     if full_name:
-        parts = full_name.strip().split(' ', 1)
-        request.user.first_name = parts[0]
-        request.user.last_name = parts[1] if len(parts) > 1 else ''
+        first, *rest = full_name.strip().split(' ', 1)
+        request.user.first_name = first
+        request.user.last_name  = rest[0] if rest else ''
     if email:
         request.user.email = email
     request.user.save()

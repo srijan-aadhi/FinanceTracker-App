@@ -25,13 +25,14 @@ const Profile = () => {
   const [form, setForm] = useState<ProfileData>({
     full_name: '',
     email: '',
-    currency: 'USD'
+    currency: 'USD',
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    api.get('/users/me/')
+    api
+      .get('/profile/')
       .then(res => {
         setProfile(res.data);
         setForm(res.data);
@@ -80,7 +81,9 @@ const Profile = () => {
                 <AccountCircleIcon sx={{ fontSize: 60 }} />
               </Avatar>
               <Typography variant="h5">{form.full_name}</Typography>
-              <Typography variant="body2" color="text.secondary">{form.email}</Typography>
+              <Typography variant="body2" color="text.secondary">
+                {form.email}
+              </Typography>
             </Box>
             <Divider sx={{ my: 2 }} />
             <Box component="form" onSubmit={handleSubmit}>
