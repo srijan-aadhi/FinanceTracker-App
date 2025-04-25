@@ -57,7 +57,7 @@ export default function AnnualSpending() {
   /* loading / empty */
   if (data === null) {
     return (
-      <Paper sx={{ p: 3, width: '100%', flexGrow: 1 }}>
+      <Paper sx={{ p: 3, minWidth: 800, flexGrow: 1 }}>
         <Typography variant="h4" gutterBottom>Annual Spending vs Income</Typography>
         <Box sx={{ display: 'flex', justifyContent: 'center' }}>
           <CircularProgress />
@@ -73,7 +73,7 @@ export default function AnnualSpending() {
   const ticks  = Array.from({ length: Math.ceil(top / step) + 1 }, (_, i) => i * step);
 
   return (
-    <Paper sx={{ p: 3, width: '100%', flexGrow: 1 }}>
+    <Paper sx={{ p: 3, minWidth: 800 , flexGrow: 1 }}>
       <Typography variant="h4" gutterBottom>Annual Spending vs Income</Typography>
 
       {data.length === 0 ? (
