@@ -11,6 +11,7 @@ import Transactions from './pages/Transactions';
 import Budgets from './pages/Budgets';
 import Categories from './pages/Categories';
 import Profile from './pages/Profile';
+import useTokenWatcher from './hooks/UseTokenWatcher';
 
 // Wrapper for protected routes
 type PrivateRouteProps = { children: React.ReactNode };
@@ -20,6 +21,7 @@ const PrivateRoute: React.FC<PrivateRouteProps> = ({ children }) => {
 };
 
 function App() {
+  useTokenWatcher();
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
