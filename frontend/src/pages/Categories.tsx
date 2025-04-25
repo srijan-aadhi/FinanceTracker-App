@@ -1,5 +1,6 @@
 import { useState, useEffect, ChangeEvent, FormEvent } from 'react';
 import api from '../api';
+import axios from 'axios'
 import {
   Box,
   Typography,
@@ -94,7 +95,12 @@ const Categories = () => {
       fetchCategories();
       handleClose();
     } catch (err) {
-      console.error('Failed to save category:', err);
+        if (axios.isAxiosError(err) && err.response) {
+          console.error("Status:", err.response.status);    // 400
+          console.error("Error body:", err.response.data);  // This tells us what's wrong
+        } else {
+          console.error("Unknown error:", err);
+        }
     }
   };
 

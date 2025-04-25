@@ -57,11 +57,11 @@ const Transactions = () => {
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   useEffect(() => {
-    api.get('http://localhost:8000/api/transactions/')
+    api.get('/transactions/')
       .then(res => setTransactions(res.data))
       .catch(err => console.error("Failed to fetch transactions", err));
 
-    api.get('http://localhost:8000/api/categories/')
+    api.get('/categories/')
       .then(res => setCategories(res.data))
       .catch(err => console.error("Failed to fetch categories", err));
   }, []);
@@ -123,10 +123,10 @@ const Transactions = () => {
 
     try {
       if (editingId) {
-        const response = await api.put(`http://localhost:8000/api/transactions/${editingId}/`, transactionData);
+        const response = await api.put(`/transactions/${editingId}/`, transactionData);
         setTransactions(prev => prev.map(t => t.id === editingId ? response.data : t));
       } else {
-        const response = await api.post('http://localhost:8000/api/transactions/', transactionData);
+        const response = await api.post('/transactions/', transactionData);
         setTransactions(prev => [...prev, response.data]);
       }
       setNewTransaction({ date: '', description: '', category: '', amount: '' });
@@ -150,7 +150,7 @@ const Transactions = () => {
 
   const handleDelete = async (id: number) => {
     try {
-      await api.delete(`http://localhost:8000/api/transactions/${id}/`);
+      await api.delete(`/transactions/${id}/`);
       setTransactions(prev => prev.filter(t => t.id !== id));
     } catch (error) {
       console.error("Failed to delete transaction:", error);

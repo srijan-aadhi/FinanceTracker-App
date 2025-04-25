@@ -36,6 +36,7 @@ class UserSerializer(serializers.ModelSerializer):
             'preferences',       
         ]
 class CategorySerializer(serializers.ModelSerializer):
+    user = serializers.HiddenField(default=serializers.CurrentUserDefault())
     class Meta:
         model = Category
         fields = '__all__'

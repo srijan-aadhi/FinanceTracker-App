@@ -8,7 +8,7 @@ const api = axios.create({
   },
 });
 
-// 🔐 Add access token to all requests if present
+// Add access token to all requests if present
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('accessToken');

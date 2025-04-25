@@ -124,7 +124,9 @@ def protected_view(request):
 def transaction_list(request):
     if request.method == 'GET':
         transactions = Transaction.objects.filter(user=request.user).order_by('-date')
+        # e.g. in your transaction_list view
         serializer = TransactionSerializer(transactions, many=True)
+
         return Response(serializer.data)
     elif request.method == 'POST':
         serializer = TransactionSerializer(data=request.data, context={'request': request})
@@ -135,6 +137,7 @@ def transaction_list(request):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['PUT', 'DELETE'])
+@permission_classes([IsAuthenticated])        # require a logged-in user
 def transaction_detail(request, pk):
     try:
         transaction = Transaction.objects.get(pk=pk)
@@ -142,7 +145,13 @@ def transaction_detail(request, pk):
         return Response({'error': 'Transaction not found'}, status=status.HTTP_404_NOT_FOUND)
 
     if request.method == 'PUT':
-        serializer = TransactionSerializer(transaction, data=request.data)
+        # NEW — include the request in context so CurrentUserDefault can find it
+        serializer = TransactionSerializer(
+            transaction,
+            data=request.data,
+            context={'request': request}
+        )
+
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
@@ -154,7 +163,7 @@ def transaction_detail(request, pk):
 
 @api_view(['GET'])
 def dashboard_summary(request):
-    transactions = Transaction.objects.all()
+    transactions = Transaction.objects.filter(user=request.user)
     current = now()
     
     monthly_spending = transactions.filter(
@@ -168,7 +177,7 @@ def dashboard_summary(request):
         amount__lt=0
     ).aggregate(total=Sum('amount'))['total'] or 0
 
-    # 🚀 Get total budget for the current month
+    # Get total budget for the current month
     monthly_budget = Budget.objects.filter(
         month__year=current.year,
         month__month=current.month
@@ -215,62 +224,76 @@ def budget_detail(request, pk):
         budget.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-@api_view(['GET', 'POST'])
+@api_view(["GET", "POST"])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
 def category_list(request):
-    if request.method == 'GET':
-        categories = Category.objects.all()
-        serializer = CategorySerializer(categories, many=True)
-        return Response(serializer.data)
-    elif request.method == 'POST':
-        serializer = CategorySerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    if request.method == "GET":
+        categories = Category.objects.filter(user=request.user)
+        return Response(CategorySerializer(categories, many=True).data)
 
-@api_view(['PUT', 'DELETE'])
+    # POST
+    serializer = CategorySerializer(data=request.data, context={"request": request})
+    if serializer.is_valid():
+        serializer.save(user=request.user)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(["PUT", "DELETE"])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
 def category_detail(request, pk):
     try:
-        category = Category.objects.get(pk=pk)
+        category = Category.objects.get(pk=pk, user=request.user)
     except Category.DoesNotExist:
-        return Response({'error': 'Category not found'}, status=status.HTTP_404_NOT_FOUND)
+        return Response({"error": "Category not found"}, status=status.HTTP_404_NOT_FOUND)
 
-    if request.method == 'PUT':
-        serializer = CategorySerializer(category, data=request.data)
+    if request.method == "PUT":
+        serializer = CategorySerializer(category, data=request.data,
+                                        context={"request": request})
         if serializer.is_valid():
-            serializer.save()
+            serializer.save()          # user is unchanged
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    elif request.method == 'DELETE':
-        category.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
 
-@api_view(['GET'])
+    # DELETE
+    category.delete()
+    return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@api_view(["GET"])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
 def category_summary(request):
-    categories = Category.objects.all()
+    """
+    Return totals per category **for this user only**.
+    """
     response_data = []
+    categories    = Category.objects.filter(user=request.user)
 
-    for category in categories:
-        transactions = Transaction.objects.filter(category=category)
-        total_amount = transactions.aggregate(total=Sum('amount'))['total'] or 0
+    for cat in categories:
+        # Transactions already scoped to user in transaction_list,
+        # but we filter again for safety.
+        tx_qs = Transaction.objects.filter(user=request.user, category=cat.name)
+        total = tx_qs.aggregate(total=Sum("amount"))["total"] or 0
 
-        if category.type == 'income':
+        if cat.type == "income":
             response_data.append({
-                'id': category.id,
-                'name': category.name,
-                'type': category.type,
-                'color': category.color,
-                'total_earned': total_amount if total_amount > 0 else 0
+                "id":           cat.id,
+                "name":         cat.name,
+                "type":         cat.type,
+                "color":        cat.color,
+                "total_earned": max(total, 0)
             })
         else:
             response_data.append({
-                'id': category.id,
-                'name': category.name,
-                'type': category.type,
-                'color': category.color,
-                'total_spent': abs(total_amount) if total_amount < 0 else 0
+                "id":           cat.id,
+                "name":         cat.name,
+                "type":         cat.type,
+                "color":        cat.color,
+                "total_spent":  abs(min(total, 0))
             })
 
     return Response(response_data)
-
 
