@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import axios from 'axios';
+import api from '../api';
+import { format } from 'date-fns';
 import {
   Box,
   Typography,
@@ -52,11 +53,13 @@ const Budgets = () => {
   const [form, setForm] = useState<BudgetForm>({ category: '', amount: '', month: '' });
 
   useEffect(() => {
-    axios.get('http://localhost:8000/api/budgets/')
-      .then(res => setBudgets(res.data))
+    api.get('/budgets/')
+      .then(res => setBudgets(
+        res.data.map((b: any) => ({ ...b, amount: Number(b.amount) }))
+      ))
       .catch(err => console.error("Failed to fetch budgets", err));
 
-    axios.get('http://localhost:8000/api/categories/')
+    api.get('/categories/')
       .then(res => setCategories(res.data))
       .catch(err => console.error("Failed to fetch categories", err));
   }, []);
@@ -69,19 +72,26 @@ const Budgets = () => {
   };
 
   const handleSubmit = async () => {
+    // simple MM-YYYY format validation
+    if (!/^\d{2}-\d{4}$/.test(form.month)) {
+      alert("Please enter month in MM-YYYY format");
+      return;
+    }
+
     const selectedCategory = categories.find(cat => cat.name === form.category);
+    const [month, year] = form.month.split('-');
     const budgetData = {
       category: selectedCategory?.id,
       amount: parseFloat(form.amount),
-      month: `${form.month}-01`,
+      month: `${year}-${month}-01`,
     };
 
     try {
       if (editingId) {
-        const res = await axios.put(`http://localhost:8000/api/budgets/${editingId}/`, budgetData);
+        const res = await api.put(`/budgets/${editingId}/`, budgetData);
         setBudgets(prev => prev.map(b => b.id === editingId ? res.data : b));
       } else {
-        const res = await axios.post('http://localhost:8000/api/budgets/', budgetData);
+        const res = await api.post('/budgets/', budgetData);
         setBudgets(prev => [...prev, res.data]);
       }
       setForm({ category: '', amount: '', month: '' });
@@ -94,11 +104,11 @@ const Budgets = () => {
 
   const handleEdit = (budget: Budget) => {
     const matchedCategory = categories.find(c => c.id === budget.category)?.name || '';
-    const formattedMonth = budget.month.slice(0, 7);
+    const formattedMonth = format(new Date(budget.month), 'MM-yyyy');
     setForm({
       category: matchedCategory,
       amount: budget.amount.toString(),
-      month: formattedMonth,
+      month: formattedMonth
     });
     setEditingId(budget.id);
     setOpenBudget(true);
@@ -106,7 +116,7 @@ const Budgets = () => {
 
   const handleDelete = async (id: number) => {
     try {
-      await axios.delete(`http://localhost:8000/api/budgets/${id}/`);
+      await api.delete(`/budgets/${id}/`);
       setBudgets(prev => prev.filter(b => b.id !== id));
     } catch (err) {
       console.error("Failed to delete budget", err);
@@ -117,11 +127,17 @@ const Budgets = () => {
     <>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4">Budgets</Typography>
-        <Button onClick={() => {
-          setForm({ category: '', amount: '', month: '' });
-          setEditingId(null);
-          setOpenBudget(true);
-        }} variant="contained" startIcon={<AddIcon />}>Add Budget</Button>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => {
+            setForm({ category: '', amount: '', month: '' });
+            setEditingId(null);
+            setOpenBudget(true);
+          }}
+        >
+          Add Budget
+        </Button>
       </Box>
 
       <Paper elevation={3} sx={{ mb: 3 }}>
@@ -136,15 +152,19 @@ const Budgets = () => {
           </TableHead>
           <TableBody>
             {budgets.map(b => {
-              const categoryName = categories.find(c => c.id === b.category)?.name || b.category;
+              const categoryName = categories.find(c => c.id === b.category)?.name || '';
               return (
                 <TableRow key={b.id}>
                   <TableCell>{categoryName}</TableCell>
-                  <TableCell>{b.month.slice(0, 7)}</TableCell>
+                  <TableCell>{format(new Date(b.month), 'MM-yyyy')}</TableCell>
                   <TableCell align="right">{Number(b.amount).toFixed(2)}</TableCell>
                   <TableCell align="center">
-                    <IconButton onClick={() => handleEdit(b)}><EditIcon /></IconButton>
-                    <IconButton onClick={() => handleDelete(b.id)}><DeleteIcon /></IconButton>
+                    <IconButton onClick={() => handleEdit(b)}>
+                      <EditIcon />
+                    </IconButton>
+                    <IconButton onClick={() => handleDelete(b.id)}>
+                      <DeleteIcon />
+                    </IconButton>
                   </TableCell>
                 </TableRow>
               );
@@ -164,25 +184,24 @@ const Budgets = () => {
               onChange={handleChange}
               label="Category"
             >
-              {categories.length === 0 ? (
-                <MenuItem disabled>No categories available</MenuItem>
-              ) : (
-                categories.map((cat) => (
-                  <MenuItem key={cat.id} value={cat.name}>{cat.name}</MenuItem>
-                ))
-              )}
+              {categories.map(cat => (
+                <MenuItem key={cat.id} value={cat.name}>
+                  {cat.name}
+                </MenuItem>
+              ))}
             </Select>
           </FormControl>
+
           <TextField
             margin="dense"
             name="month"
             label="Month"
-            type="month"
+            placeholder="MM-YYYY"
             fullWidth
-            InputLabelProps={{ shrink: true }}
             value={form.month}
             onChange={handleChange}
           />
+
           <TextField
             margin="dense"
             name="amount"
@@ -195,7 +214,9 @@ const Budgets = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenBudget(false)}>Cancel</Button>
-          <Button onClick={handleSubmit}>{editingId ? 'Update' : 'Add'}</Button>
+          <Button onClick={handleSubmit}>
+            {editingId ? 'Update' : 'Add'}
+          </Button>
         </DialogActions>
       </Dialog>
     </>

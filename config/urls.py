@@ -19,7 +19,6 @@ from django.urls import path, include
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/', include('backend.urls')),  # ✅ This is what makes /api/transactions/ work
+    path('api/', include('backend.urls')),  
 ]
-
 

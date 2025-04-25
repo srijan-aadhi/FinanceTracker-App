@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import api from '../api';
 import {
   Box,
   Button,
@@ -8,14 +9,12 @@ import {
   Typography,
   Paper,
   Link,
+  CircularProgress
 } from '@mui/material';
 import { useFormik } from 'formik';
 import * as yup from 'yup';
 
 const validationSchema = yup.object({
-  name: yup
-    .string()
-    .required('Name is required'),
   email: yup
     .string()
     .email('Enter a valid email')
@@ -24,31 +23,38 @@ const validationSchema = yup.object({
     .string()
     .min(8, 'Password should be of minimum 8 characters length')
     .required('Password is required'),
-  confirmPassword: yup
-    .string()
-    .oneOf([yup.ref('password')], 'Passwords must match')
-    .required('Confirm password is required'),
 });
 
 const Register = () => {
   const navigate = useNavigate();
-  const [error, setError] = useState('');
+  const [error, setError] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(false);
 
   const formik = useFormik({
     initialValues: {
-      name: '',
       email: '',
       password: '',
-      confirmPassword: '',
     },
-    validationSchema: validationSchema,
+    validationSchema,
     onSubmit: async (values) => {
+      setError('');
+      setLoading(true);
       try {
-        // TODO: Implement actual registration logic
-        console.log('Registration attempt with:', values);
+        const response = await api.post('/register/', {
+          email: values.email,
+          password: values.password,
+        });
+
+        console.log("✅ Registration successful:", response.data);
         navigate('/login');
-      } catch (err) {
-        setError('Registration failed. Please try again.');
+      } catch (err: any) {
+        if (err.response?.data?.error) {
+          setError(err.response.data.error);
+        } else {
+          setError('Something went wrong. Please try again.');
+        }
+      } finally {
+        setLoading(false);
       }
     },
   });
@@ -85,26 +91,14 @@ const Register = () => {
               margin="normal"
               required
               fullWidth
-              id="name"
-              label="Full Name"
-              name="name"
-              autoComplete="name"
-              autoFocus
-              value={formik.values.name}
-              onChange={formik.handleChange}
-              error={formik.touched.name && Boolean(formik.errors.name)}
-              helperText={formik.touched.name && formik.errors.name}
-            />
-            <TextField
-              margin="normal"
-              required
-              fullWidth
               id="email"
               label="Email Address"
               name="email"
               autoComplete="email"
+              autoFocus
               value={formik.values.email}
               onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
               error={formik.touched.email && Boolean(formik.errors.email)}
               helperText={formik.touched.email && formik.errors.email}
             />
@@ -119,22 +113,9 @@ const Register = () => {
               autoComplete="new-password"
               value={formik.values.password}
               onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
               error={formik.touched.password && Boolean(formik.errors.password)}
               helperText={formik.touched.password && formik.errors.password}
-            />
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              name="confirmPassword"
-              label="Confirm Password"
-              type="password"
-              id="confirmPassword"
-              autoComplete="new-password"
-              value={formik.values.confirmPassword}
-              onChange={formik.handleChange}
-              error={formik.touched.confirmPassword && Boolean(formik.errors.confirmPassword)}
-              helperText={formik.touched.confirmPassword && formik.errors.confirmPassword}
             />
             {error && (
               <Typography color="error" sx={{ mt: 2 }}>
@@ -146,12 +127,13 @@ const Register = () => {
               fullWidth
               variant="contained"
               sx={{ mt: 3, mb: 2 }}
+              disabled={loading || !formik.isValid}
             >
-              Sign Up
+              {loading ? <CircularProgress size={24} /> : 'Sign Up'}
             </Button>
             <Box sx={{ textAlign: 'center' }}>
               <Link href="/login" variant="body2">
-                {"Already have an account? Sign in"}
+                {'Already have an account? Sign In'}
               </Link>
             </Box>
           </Box>
@@ -161,4 +143,4 @@ const Register = () => {
   );
 };
 
-export default Register; 
+export default Register;

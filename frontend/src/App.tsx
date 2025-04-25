@@ -1,7 +1,8 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider, CssBaseline } from '@mui/material';
 import { theme } from './theme';
 import Layout from './layouts/Layout';
+
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -16,10 +17,14 @@ function App() {
       <CssBaseline />
       <Router>
         <Routes>
+          {/* Public Routes */}
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+
+          {/* Authenticated Routes - Layout with sidebar/navigation */}
           <Route path="/" element={<Layout />}>
-            <Route index element={<Dashboard />} />
+            <Route index element={<Navigate to="/dashboard" replace />} />
+            <Route path="dashboard" element={<Dashboard />} />
             <Route path="transactions" element={<Transactions />} />
             <Route path="budgets" element={<Budgets />} />
             <Route path="categories" element={<Categories />} />

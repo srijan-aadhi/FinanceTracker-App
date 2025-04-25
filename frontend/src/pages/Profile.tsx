@@ -1,84 +1,96 @@
-import React, { useState, ChangeEvent, FormEvent } from 'react';
-import { Typography, Paper, Box, Avatar, Button, Grid, TextField, Divider, Switch, FormControlLabel } from '@mui/material';
+import React, { useState, useEffect, ChangeEvent, FormEvent } from 'react';
+import {
+  Typography,
+  Paper,
+  Box,
+  Avatar,
+  Button,
+  Grid,
+  TextField,
+  Divider,
+  CircularProgress,
+} from '@mui/material';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import SaveIcon from '@mui/icons-material/Save';
-import VpnKeyIcon from '@mui/icons-material/VpnKey';
+import api from '../api';
+
+interface ProfileData {
+  full_name: string;
+  email: string;
+  currency: string;
+}
 
 const Profile = () => {
-  const [profile, setProfile] = useState({
-    name: 'John Doe',
-    email: 'john.doe@example.com',
-    currency: 'USD',
-    darkMode: true,
-    emailNotifications: true
+  const [profile, setProfile] = useState<ProfileData | null>(null);
+  const [form, setForm] = useState<ProfileData>({
+    full_name: '',
+    email: '',
+    currency: 'USD'
   });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-  const [password, setPassword] = useState({
-    current: '',
-    new: '',
-    confirm: ''
-  });
+  useEffect(() => {
+    api.get('/users/me/')
+      .then(res => {
+        setProfile(res.data);
+        setForm(res.data);
+      })
+      .catch(err => console.error('Failed to fetch profile', err))
+      .finally(() => setLoading(false));
+  }, []);
 
-  const handleProfileChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value, checked } = e.target;
-    setProfile({
-      ...profile,
-      [name]: name === 'darkMode' || name === 'emailNotifications' ? checked : value
-    });
-  };
-
-  const handlePasswordChange = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setPassword({
-      ...password,
-      [name]: value
-    });
+    setForm(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleProfileSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    // Here you would typically send the updated profile to your backend
-    console.log('Profile updated:', profile);
-    // Show success message or handle accordingly
+    setSaving(true);
+    try {
+      await api.put('/profile/', form);
+      alert('Profile updated successfully');
+    } catch (err) {
+      console.error('Failed to update profile', err);
+      alert('Error updating profile');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handlePasswordSubmit = (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    // Here you would typically send the password change request to your backend
-    console.log('Password change requested');
-    // Reset password fields
-    setPassword({ current: '', new: '', confirm: '' });
-    // Show success message or handle accordingly
-  };
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
     <>
-      <Typography variant="h4" component="h1" gutterBottom>
+      <Typography variant="h4" gutterBottom>
         Profile Settings
       </Typography>
-
       <Grid container spacing={3}>
-        {/* Profile Information */}
         <Grid item xs={12} md={6}>
           <Paper elevation={3} sx={{ p: 3 }}>
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 3 }}>
               <Avatar sx={{ width: 100, height: 100, mb: 2 }}>
                 <AccountCircleIcon sx={{ fontSize: 60 }} />
               </Avatar>
-              <Typography variant="h5">{profile.name}</Typography>
-              <Typography variant="body2" color="text.secondary">{profile.email}</Typography>
+              <Typography variant="h5">{form.full_name}</Typography>
+              <Typography variant="body2" color="text.secondary">{form.email}</Typography>
             </Box>
-
             <Divider sx={{ my: 2 }} />
-
-            <Box component="form" onSubmit={handleProfileSubmit}>
+            <Box component="form" onSubmit={handleSubmit}>
               <TextField
                 margin="normal"
                 fullWidth
                 label="Full Name"
-                name="name"
-                value={profile.name}
-                onChange={handleProfileChange}
+                name="full_name"
+                value={form.full_name}
+                onChange={handleChange}
               />
               <TextField
                 margin="normal"
@@ -86,8 +98,8 @@ const Profile = () => {
                 label="Email Address"
                 name="email"
                 type="email"
-                value={profile.email}
-                onChange={handleProfileChange}
+                value={form.email}
+                onChange={handleChange}
               />
               <TextField
                 margin="normal"
@@ -95,100 +107,23 @@ const Profile = () => {
                 label="Preferred Currency"
                 name="currency"
                 select
-                value={profile.currency}
-                onChange={handleProfileChange}
-                SelectProps={{
-                  native: true,
-                }}
+                value={form.currency}
+                onChange={handleChange}
+                SelectProps={{ native: true }}
               >
                 <option value="USD">USD ($)</option>
                 <option value="EUR">EUR (€)</option>
                 <option value="GBP">GBP (£)</option>
                 <option value="JPY">JPY (¥)</option>
               </TextField>
-
-              <Box sx={{ mt: 2 }}>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={profile.darkMode}
-                      onChange={handleProfileChange}
-                      name="darkMode"
-                      color="primary"
-                    />
-                  }
-                  label="Dark Mode"
-                />
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={profile.emailNotifications}
-                      onChange={handleProfileChange}
-                      name="emailNotifications"
-                      color="primary"
-                    />
-                  }
-                  label="Email Notifications"
-                />
-              </Box>
-
               <Button
                 type="submit"
                 variant="contained"
-                color="primary"
                 startIcon={<SaveIcon />}
                 sx={{ mt: 3 }}
+                disabled={saving}
               >
-                Save Changes
-              </Button>
-            </Box>
-          </Paper>
-        </Grid>
-
-        {/* Password Change */}
-        <Grid item xs={12} md={6}>
-          <Paper elevation={3} sx={{ p: 3 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-              <VpnKeyIcon sx={{ mr: 1 }} />
-              <Typography variant="h5">Change Password</Typography>
-            </Box>
-
-            <Box component="form" onSubmit={handlePasswordSubmit}>
-              <TextField
-                margin="normal"
-                fullWidth
-                label="Current Password"
-                name="current"
-                type="password"
-                value={password.current}
-                onChange={handlePasswordChange}
-              />
-              <TextField
-                margin="normal"
-                fullWidth
-                label="New Password"
-                name="new"
-                type="password"
-                value={password.new}
-                onChange={handlePasswordChange}
-              />
-              <TextField
-                margin="normal"
-                fullWidth
-                label="Confirm New Password"
-                name="confirm"
-                type="password"
-                value={password.confirm}
-                onChange={handlePasswordChange}
-              />
-
-              <Button
-                type="submit"
-                variant="contained"
-                color="primary"
-                sx={{ mt: 3 }}
-              >
-                Update Password
+                {saving ? 'Saving...' : 'Save Changes'}
               </Button>
             </Box>
           </Paper>

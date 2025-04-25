@@ -1,21 +1,111 @@
-from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
 from django.db.models import Sum
-from datetime import datetime
 from .models import Transaction, Budget, Category
-from .serializers import TransactionSerializer, BudgetSerializer, CategorySerializer
+from .serializers import TransactionSerializer, BudgetSerializer, CategorySerializer, UserSerializer, ProfileSerializer
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
+from django.contrib.auth import authenticate, login
+from rest_framework.views import APIView
+from django.contrib.auth import get_user_model
+from django.utils.timezone import now  
+from rest_framework.permissions import AllowAny
+from rest_framework_simplejwt.authentication import JWTAuthentication
+
+@api_view(['GET', 'PUT'])
+@authentication_classes([JWTAuthentication]) 
+@permission_classes([IsAuthenticated])
+def profile_view(request):
+    profile = request.user.profile
+
+    if request.method == 'GET':
+        return Response(ProfileSerializer(profile).data)
+
+    # Extract incoming data
+    data = request.data
+    full_name = data.get('full_name', '')
+    email = data.get('email')
+    currency = data.get('currency')
+
+    # Update Profile
+    if currency:
+        profile.currency = currency
+        profile.save()
+
+    # Update User fields
+    if full_name:
+        parts = full_name.strip().split(' ', 1)
+        request.user.first_name = parts[0]
+        request.user.last_name = parts[1] if len(parts) > 1 else ''
+    if email:
+        request.user.email = email
+    request.user.save()
+
+    return Response(ProfileSerializer(profile).data)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def user_info(request):
+    return Response({
+        'id': request.user.id,
+        'email': request.user.email,
+        'username': request.user.username,
+    })
+
+User = get_user_model()
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def current_user_view(request):
+    serializer = UserSerializer(request.user)
+    return Response(serializer.data)
+
+class RegisterUserView(APIView):
+    permission_classes = [AllowAny]
+    def get_permissions(self):
+        return [AllowAny()]
+
+    def post(self, request):
+        email = request.data.get('email')
+        password = request.data.get('password')
+
+        if not email or not password:
+            return Response({'error': 'Email and password required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if User.objects.filter(email=email).exists():
+            return Response({'error': 'User already exists'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = User.objects.create_user(username=email, email=email, password=password)
+        return Response({'message': 'User created successfully'}, status=status.HTTP_201_CREATED)
+
+class SessionLoginView(APIView):
+    def post(self, request):
+        email = request.data.get('email')
+        password = request.data.get('password')
+        user = authenticate(request, username=email, password=password)
+        if user is not None:
+            login(request, user)
+            return Response({'detail': 'Logged in successfully'}, status=status.HTTP_200_OK)
+        return Response({'detail': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def protected_view(request):
+    return Response({'message': f'Hello, {request.user.email}'})
 
 @api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
 def transaction_list(request):
     if request.method == 'GET':
-        transactions = Transaction.objects.all().order_by('-date')
+        transactions = Transaction.objects.filter(user=request.user).order_by('-date')
         serializer = TransactionSerializer(transactions, many=True)
         return Response(serializer.data)
     elif request.method == 'POST':
-        serializer = TransactionSerializer(data=request.data)
+        serializer = TransactionSerializer(data=request.data, context={'request': request})
+
         if serializer.is_valid():
-            serializer.save()
+            serializer.save(user=request.user)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -36,21 +126,39 @@ def transaction_detail(request, pk):
         transaction.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+
 @api_view(['GET'])
 def dashboard_summary(request):
     transactions = Transaction.objects.all()
-    now = datetime.now()
-    monthly_spending = transactions.filter(date__year=now.year, date__month=now.month, amount__lt=0).aggregate(total=Sum('amount'))['total'] or 0
-    yearly_spending = transactions.filter(date__year=now.year, amount__lt=0).aggregate(total=Sum('amount'))['total'] or 0
-    monthly_budget = 3000
+    current = now()
+    
+    monthly_spending = transactions.filter(
+        date__year=current.year,
+        date__month=current.month,
+        amount__lt=0
+    ).aggregate(total=Sum('amount'))['total'] or 0
+
+    yearly_spending = transactions.filter(
+        date__year=current.year,
+        amount__lt=0
+    ).aggregate(total=Sum('amount'))['total'] or 0
+
+    # 🚀 Get total budget for the current month
+    monthly_budget = Budget.objects.filter(
+        month__year=current.year,
+        month__month=current.month
+    ).aggregate(total=Sum('amount'))['total'] or 0
+
     recent_transactions = transactions.order_by('-date')[:5]
     serializer = TransactionSerializer(recent_transactions, many=True)
+
     return Response({
         'monthlySpending': abs(monthly_spending),
         'monthlyBudget': monthly_budget,
         'yearlySpending': abs(yearly_spending),
         'recentTransactions': serializer.data
     })
+
 
 @api_view(['GET', 'POST'])
 def budget_list(request):
@@ -111,3 +219,33 @@ def category_detail(request, pk):
     elif request.method == 'DELETE':
         category.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+@api_view(['GET'])
+def category_summary(request):
+    categories = Category.objects.all()
+    response_data = []
+
+    for category in categories:
+        transactions = Transaction.objects.filter(category=category)
+        total_amount = transactions.aggregate(total=Sum('amount'))['total'] or 0
+
+        if category.type == 'income':
+            response_data.append({
+                'id': category.id,
+                'name': category.name,
+                'type': category.type,
+                'color': category.color,
+                'total_earned': total_amount if total_amount > 0 else 0
+            })
+        else:
+            response_data.append({
+                'id': category.id,
+                'name': category.name,
+                'type': category.type,
+                'color': category.color,
+                'total_spent': abs(total_amount) if total_amount < 0 else 0
+            })
+
+    return Response(response_data)
+
+

@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link as RouterLink } from 'react-router-dom';
+import api from '../api';
 import {
   Box,
   Button,
@@ -8,7 +9,11 @@ import {
   Typography,
   Paper,
   Link,
+  InputAdornment,
+  IconButton,
+  CircularProgress
 } from '@mui/material';
+import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { useFormik } from 'formik';
 import * as yup from 'yup';
 
@@ -26,20 +31,41 @@ const validationSchema = yup.object({
 const Login = () => {
   const navigate = useNavigate();
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
+  const handleClickShowPassword = () => setShowPassword((prev) => !prev);
 
   const formik = useFormik({
     initialValues: {
       email: '',
       password: '',
     },
-    validationSchema: validationSchema,
+    validationSchema,
+    validateOnMount: true,
     onSubmit: async (values) => {
+      setError('');
+      setLoading(true);
       try {
-        // TODO: Implement actual login logic
-        console.log('Login attempt with:', values);
+        const response = await api.post('/token/', {
+          username: values.email,
+          password: values.password,
+        });
+
+        const { access, refresh } = response.data;
+        localStorage.setItem('accessToken', access);
+        localStorage.setItem('refreshToken', refresh);
+
         navigate('/');
-      } catch (err) {
-        setError('Invalid email or password');
+        window.location.reload(); // Ensure token-protected content loads
+      } catch (err: any) {
+        if (err.response?.status === 401 || err.response?.status === 400) {
+          setError('Invalid email or password');
+        } else {
+          setError('Something went wrong. Please try again.');
+        }
+      } finally {
+        setLoading(false);
       }
     },
   });
@@ -67,11 +93,7 @@ const Login = () => {
           <Typography component="h1" variant="h5">
             Sign in
           </Typography>
-          <Box
-            component="form"
-            onSubmit={formik.handleSubmit}
-            sx={{ mt: 1, width: '100%' }}
-          >
+          <Box component="form" onSubmit={formik.handleSubmit} sx={{ mt: 1, width: '100%' }}>
             <TextField
               margin="normal"
               required
@@ -83,6 +105,7 @@ const Login = () => {
               autoFocus
               value={formik.values.email}
               onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
               error={formik.touched.email && Boolean(formik.errors.email)}
               helperText={formik.touched.email && formik.errors.email}
             />
@@ -92,13 +115,27 @@ const Login = () => {
               fullWidth
               name="password"
               label="Password"
-              type="password"
+              type={showPassword ? 'text' : 'password'}
               id="password"
               autoComplete="current-password"
               value={formik.values.password}
               onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
               error={formik.touched.password && Boolean(formik.errors.password)}
               helperText={formik.touched.password && formik.errors.password}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      onClick={handleClickShowPassword}
+                      edge="end"
+                      aria-label="toggle password visibility"
+                    >
+                      {showPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
             />
             {error && (
               <Typography color="error" sx={{ mt: 2 }}>
@@ -110,11 +147,12 @@ const Login = () => {
               fullWidth
               variant="contained"
               sx={{ mt: 3, mb: 2 }}
+              disabled={loading || !formik.isValid}
             >
-              Sign In
+              {loading ? <CircularProgress size={24} /> : 'Sign In'}
             </Button>
             <Box sx={{ textAlign: 'center' }}>
-              <Link href="/register" variant="body2">
+              <Link component={RouterLink} to="/register" variant="body2">
                 {"Don't have an account? Sign Up"}
               </Link>
             </Box>
@@ -125,4 +163,4 @@ const Login = () => {
   );
 };
 
-export default Login; 
+export default Login;

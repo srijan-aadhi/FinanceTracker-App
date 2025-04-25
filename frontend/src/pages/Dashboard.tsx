@@ -1,20 +1,20 @@
-import { useState, useEffect } from 'react';
-import axios from 'axios'
-import Box from '@mui/material/Box';
-import Paper from '@mui/material/Paper';
-import Typography from '@mui/material/Typography';
-import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
-import List from '@mui/material/List';
-import ListItem from '@mui/material/ListItem';
-import ListItemText from '@mui/material/ListItemText';
-import Divider from '@mui/material/Divider';
-import Grid from '@mui/material/Grid'; // ✅ the correct Grid component
-
+import { useEffect, useState } from 'react';
+import api from '../api';
+import {
+  Box,
+  Typography,
+  Paper,
+  Card,
+  CardContent,
+  List,
+  ListItem,
+  ListItemText,
+  Divider,
+  Grid,
+} from '@mui/material';
 import {
   TrendingUp as TrendingUpIcon,
   TrendingDown as TrendingDownIcon,
-  AccountBalance as AccountBalanceIcon,
 } from '@mui/icons-material';
 
 interface Transaction {
@@ -29,9 +29,10 @@ const Dashboard = () => {
   const [monthlyBudget, setMonthlyBudget] = useState(0);
   const [yearlySpending, setYearlySpending] = useState(0);
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
+  const [username, setUsername] = useState<string>('');
 
   useEffect(() => {
-    axios.get('http://localhost:8000/api/dashboard/')
+    api.get('/dashboard/')
       .then(res => {
         setMonthlySpending(res.data.monthlySpending);
         setMonthlyBudget(res.data.monthlyBudget);
@@ -39,8 +40,11 @@ const Dashboard = () => {
         setRecentTransactions(res.data.recentTransactions);
       })
       .catch(err => console.error("Failed to fetch dashboard data", err));
+
+    api.get('/me/')
+      .then(res => setUsername(res.data.username || res.data.email))
+      .catch(err => console.error("Failed to fetch user info", err));
   }, []);
-  
 
   const getBudgetStatus = () => {
     const percentage = (monthlySpending / monthlyBudget) * 100;
@@ -58,10 +62,9 @@ const Dashboard = () => {
   return (
     <Box sx={{ flexGrow: 1 }}>
       <Typography variant="h4" gutterBottom>
-        Dashboard
+        Welcome{username ? `, ${username}` : ''}
       </Typography>
       <Grid container spacing={3}>
-        {/* Monthly Overview */}
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 2 }}>
             <Typography variant="h6" gutterBottom>
@@ -100,7 +103,6 @@ const Dashboard = () => {
           </Paper>
         </Grid>
 
-        {/* Yearly Overview */}
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 2 }}>
             <Typography variant="h6" gutterBottom>
@@ -119,7 +121,6 @@ const Dashboard = () => {
           </Paper>
         </Grid>
 
-        {/* Recent Transactions */}
         <Grid item xs={12}>
           <Paper sx={{ p: 2 }}>
             <Typography variant="h6" gutterBottom>
@@ -130,8 +131,8 @@ const Dashboard = () => {
                 <Box key={transaction.id}>
                   <ListItem>
                     <ListItemText
-                      primary={transaction.description}
-                      secondary={new Date(transaction.date).toLocaleDateString()}
+                      primary={transaction.description || "Unlabeled"}
+                      secondary={new Date(transaction.date + 'T00:00:00').toLocaleDateString()}
                     />
                     <Typography
                       color={transaction.amount >= 0 ? 'success.main' : 'error.main'}
@@ -151,4 +152,4 @@ const Dashboard = () => {
   );
 };
 
-export default Dashboard; 
+export default Dashboard;
