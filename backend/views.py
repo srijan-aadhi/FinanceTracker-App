@@ -85,6 +85,8 @@ def current_user_view(request):
     serializer = UserSerializer(request.user)
     return Response(serializer.data)
 
+from backend.utils import create_default_categories
+
 class RegisterUserView(APIView):
     permission_classes = [AllowAny]
     def get_permissions(self):
@@ -101,6 +103,7 @@ class RegisterUserView(APIView):
             return Response({'error': 'User already exists'}, status=status.HTTP_400_BAD_REQUEST)
 
         user = User.objects.create_user(username=email, email=email, password=password)
+        create_default_categories(user)
         return Response({'message': 'User created successfully'}, status=status.HTTP_201_CREATED)
 
 class SessionLoginView(APIView):
