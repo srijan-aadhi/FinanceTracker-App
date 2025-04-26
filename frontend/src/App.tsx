@@ -13,14 +13,13 @@ import Profile from './pages/Profile';
 import AnnualSpending from './pages/AnnualSpending';
 import useTokenWatcher from './hooks/UseTokenWatcher';
 
-// ─────────────────────────────────────────────────────────────
-// Helper for protected routes
+
 type PrivateRouteProps = { children: React.ReactNode };
 const PrivateRoute: React.FC<PrivateRouteProps> = ({ children }) => {
   const token = localStorage.getItem('accessToken');
   return token ? <>{children}</> : <Navigate to="/login" replace />;
 };
-// ─────────────────────────────────────────────────────────────
+
 
 export default function App() {
   useTokenWatcher();
