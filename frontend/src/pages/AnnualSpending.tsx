@@ -41,7 +41,7 @@ export default function AnnualSpending() {
   useEffect(() => {
     api.get<RawPoint[]>('/analytics/annual-spending/')
       .then(res => {
-        const baseline = buildYearBaseline(19);          // last 20 years
+        const baseline = buildYearBaseline(19);          
         const merged = baseline.map((pt) => {
           const found = res.data.find(d => d.year === pt.year);
           return found ? { ...pt, ...found } : pt;
@@ -50,11 +50,11 @@ export default function AnnualSpending() {
       })
       .catch(err => {
         console.error('Failed to fetch annual spending', err);
-        setData([]);   // still render empty state
+        setData([]);  
       });
   }, []);
 
-  /* loading / empty */
+  
   if (data === null) {
     return (
       <Paper sx={{ p: 3, minWidth: 800, flexGrow: 1 }}>
@@ -66,7 +66,7 @@ export default function AnnualSpending() {
     );
   }
 
-  /* derive Y-axis ticks */
+  
   const maxVal = Math.max(...data.map(d => Math.max(d.income, d.expense)));
   const step   = getStepSize(maxVal);
   const top    = Math.ceil(maxVal / step) * step || step;

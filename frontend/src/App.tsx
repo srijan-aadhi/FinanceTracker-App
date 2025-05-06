@@ -29,11 +29,11 @@ export default function App() {
       <CssBaseline />
       <Router>
         <Routes>
-          {/* PUBLIC */}
+          
           <Route path="/login"    element={<Login />} />
           <Route path="/register" element={<Register />} />
 
-          {/* PRIVATE – all share the Sidebar/Layout */}
+          
           <Route
             path="/"
             element={
@@ -51,7 +51,7 @@ export default function App() {
             <Route path="annual-spending" element={<AnnualSpending />} />
           </Route>
 
-          {/* catch-all → login */}
+          
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </Router>

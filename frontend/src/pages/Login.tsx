@@ -64,7 +64,7 @@ const Login = () => {
         localStorage.setItem('refreshToken', refresh);
 
         navigate('/');
-        window.location.reload(); // Ensure token-protected content loads
+        window.location.reload(); 
       } catch (err: any) {
         if (err.response?.status === 401 || err.response?.status === 400) {
           setError('Invalid email or password');
